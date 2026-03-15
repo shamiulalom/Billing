@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo } from "react";
-import { FileText, Plus, Trash2, Download, Eye, RotateCcw, Settings, Edit2 } from "lucide-react";
+import { FileText, Plus, Trash2, Download, Eye, RotateCcw, Settings, Edit2, Search, LayoutDashboard } from "lucide-react";
 import { ReportHeader, LineItem } from "./types";
 import { formatCurrency } from "./utils";
 import { calculateTotals, generateReports } from "./services/reportService";
@@ -217,6 +217,10 @@ const App: React.FC = () => {
   const [resetKey, setResetKey] = useState(0);
   const [persistentColors, setPersistentColors] = useState<string[]>([]);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [activeView, setActiveView] = useState<'generator' | 'dashboard'>('generator');
+  const [publicReports, setPublicReports] = useState<any[]>([]);
+  const [publicSearch, setPublicSearch] = useState("");
+  const [isFetchingReports, setIsFetchingReports] = useState(false);
   const [currentReportId, setCurrentReportId] = useState<string | null>(null);
   
   // Supabase Data States
@@ -252,8 +256,25 @@ const App: React.FC = () => {
       if (f) setSupabaseFabrics(f);
       if (c) setSupabaseColors(c.map(item => item.name));
       if (s) setSupabaseSuppliers(s);
+
+      // Also fetch reports for the public dashboard
+      fetchPublicReports();
     } catch (error) {
       console.error("Error fetching Supabase data:", error);
+    }
+  };
+
+  const fetchPublicReports = async () => {
+    const sb = getSupabase();
+    if (!sb) return;
+    setIsFetchingReports(true);
+    try {
+      const { data } = await sb.from("reports").select("*").order("updated_at", { ascending: false });
+      setPublicReports(data || []);
+    } catch (error) {
+      console.error("Error fetching public reports:", error);
+    } finally {
+      setIsFetchingReports(false);
     }
   };
 
@@ -602,13 +623,32 @@ const App: React.FC = () => {
             <div className="header-logo">📊</div>
             <span>Bill Of Exchange Report Generator</span>
           </div>
-          <button 
-            className="p-2 hover:bg-white/10 rounded-full transition-colors text-white/80 hover:text-white"
-            onClick={() => setIsSettingsOpen(true)}
-            title="Management Settings"
-          >
-            <Settings size={20} />
-          </button>
+          <div className="flex items-center gap-4">
+            <nav className="flex bg-white/10 p-1 rounded-lg">
+              <button 
+                onClick={() => setActiveView('generator')}
+                className={`px-4 py-1.5 rounded-md text-sm font-bold transition-all ${activeView === 'generator' ? 'bg-white text-blue-900 shadow-sm' : 'text-white/70 hover:text-white'}`}
+              >
+                Generator
+              </button>
+              <button 
+                onClick={() => {
+                  setActiveView('dashboard');
+                  fetchPublicReports();
+                }}
+                className={`px-4 py-1.5 rounded-md text-sm font-bold transition-all ${activeView === 'dashboard' ? 'bg-white text-blue-900 shadow-sm' : 'text-white/70 hover:text-white'}`}
+              >
+                Public Dashboard
+              </button>
+            </nav>
+            <button 
+              className="p-2 hover:bg-white/10 rounded-full transition-colors text-white/80 hover:text-white"
+              onClick={() => setIsSettingsOpen(true)}
+              title="Management Settings"
+            >
+              <Settings size={20} />
+            </button>
+          </div>
         </div>
       </header>
 
@@ -620,262 +660,332 @@ const App: React.FC = () => {
       />
 
       <div className="content-wrapper">
-        <div className="main-panel">
-          {currentReportId && (
-            <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg flex justify-between items-center">
-              <div className="flex items-center gap-2 text-blue-700 text-sm font-bold">
-                <Edit2 size={16} />
-                Editing Existing Report (Changes will update the dashboard record)
-              </div>
-            </div>
-          )}
-          <div className="form-section" key={resetKey}>
-            <div className="bill-info-header">
-              <FileText size={18} />
-              <span>Bill Information</span>
-            </div>
-
-            <div className="bill-info-container">
-              <div className="bill-info-left">
-                <div className="row-30-70">
-                  <SmartInputField 
-                    label="Buyer Name" 
-                    name="buyerName" 
-                    value={header.buyerName} 
-                    onChange={handleHeaderChange} 
-                    onSelectSuggestion={updateHeaderField}
-                    suggestions={uniqueBuyers}
-                    threshold={1}
-                    required 
-                    bold 
-                  />
-                  <SmartInputField 
-                    label="Supplier Name" 
-                    name="supplierName" 
-                    value={header.supplierName} 
-                    onChange={handleHeaderChange} 
-                    onSelectSuggestion={updateHeaderField}
-                    suggestions={allSuppliers}
-                    threshold={1} 
-                  />
+        {activeView === 'generator' ? (
+          <>
+            <div className="main-panel">
+              {currentReportId && (
+                <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg flex justify-between items-center">
+                  <div className="flex items-center gap-2 text-blue-700 text-sm font-bold">
+                    <Edit2 size={16} />
+                    Editing Existing Report (Changes will update the dashboard record)
+                  </div>
                 </div>
-                <div className="row-30-70">
-                  <SmartInputField 
-                    label="File No" 
-                    name="fileNo" 
-                    value={header.fileNo} 
-                    onChange={handleHeaderChange} 
-                    onSelectSuggestion={updateHeaderField}
-                    suggestions={allContracts}
-                    threshold={3} 
-                  />
-                  <div className="input-field">
-                    <label className="input-label">Invoice No</label>
-                    <input 
-                      type="text" 
-                      name="invoiceNo" 
-                      value={header.invoiceNo || ""} 
-                      onChange={handleHeaderChange}
-                      autoComplete="off"
-                    />
+              )}
+              <div className="form-section" key={resetKey}>
+                <div className="bill-info-header">
+                  <FileText size={18} />
+                  <span>Bill Information</span>
+                </div>
+
+                <div className="bill-info-container">
+                  <div className="bill-info-left">
+                    <div className="row-30-70">
+                      <SmartInputField 
+                        label="Buyer Name" 
+                        name="buyerName" 
+                        value={header.buyerName} 
+                        onChange={handleHeaderChange} 
+                        onSelectSuggestion={updateHeaderField}
+                        suggestions={uniqueBuyers}
+                        threshold={1}
+                        required 
+                        bold 
+                      />
+                      <SmartInputField 
+                        label="Supplier Name" 
+                        name="supplierName" 
+                        value={header.supplierName} 
+                        onChange={handleHeaderChange} 
+                        onSelectSuggestion={updateHeaderField}
+                        suggestions={allSuppliers}
+                        threshold={1} 
+                      />
+                    </div>
+                    <div className="row-30-70">
+                      <SmartInputField 
+                        label="File No" 
+                        name="fileNo" 
+                        value={header.fileNo} 
+                        onChange={handleHeaderChange} 
+                        onSelectSuggestion={updateHeaderField}
+                        suggestions={allContracts}
+                        threshold={3} 
+                      />
+                      <div className="input-field">
+                        <label className="input-label">Invoice No</label>
+                        <input 
+                          type="text" 
+                          name="invoiceNo" 
+                          value={header.invoiceNo || ""} 
+                          onChange={handleHeaderChange}
+                          autoComplete="off"
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="bill-info-right">
+                    <div className="input-field lc-highlight">
+                      <label className="input-label">L/C Number</label>
+                      <input 
+                        type="text" 
+                        name="lcNumber" 
+                        value={header.lcNumber || ""} 
+                        onChange={handleHeaderChange}
+                        autoComplete="off"
+                      />
+                    </div>
+                    <div className="row-50-50">
+                      <SmartDateInput label="Invoice Date" value={header.invoiceDate} onChange={(val) => setHeader(p => ({ ...p, invoiceDate: val }))} />
+                      <SmartDateInput label="Billing Date" value={header.billingDate} onChange={(val) => setHeader(p => ({ ...p, billingDate: val }))} required />
+                    </div>
                   </div>
                 </div>
               </div>
 
-              <div className="bill-info-right">
-                <div className="input-field lc-highlight">
-                  <label className="input-label">L/C Number</label>
-                  <input 
-                    type="text" 
-                    name="lcNumber" 
-                    value={header.lcNumber || ""} 
-                    onChange={handleHeaderChange}
-                    autoComplete="off"
-                  />
+              <div className="table-section">
+                <div className="table-header">
+                  <div className="table-title">Line Items ({items.length})</div>
+                  <div className="table-controls">
+                    {!previewMode && (
+                      <button 
+                        className="btn btn-secondary btn-sm" 
+                        style={{ backgroundColor: '#fff', border: '1px solid #fee2e2', color: '#dc2626' }} 
+                        onClick={clearAll}
+                      >
+                        <RotateCcw size={16} />
+                        Clear All
+                      </button>
+                    )}
+                    <button className="btn btn-secondary btn-sm" onClick={() => setPreviewMode(!previewMode)}>
+                      <Eye size={16} />
+                      {previewMode ? "Edit" : "Preview"}
+                    </button>
+                    <button className="btn btn-primary btn-sm" onClick={addNewRow}>
+                      <Plus size={16} />
+                      Add Row
+                    </button>
+                  </div>
                 </div>
-                <div className="row-50-50">
-                  <SmartDateInput label="Invoice Date" value={header.invoiceDate} onChange={(val) => setHeader(p => ({ ...p, invoiceDate: val }))} />
-                  <SmartDateInput label="Billing Date" value={header.billingDate} onChange={(val) => setHeader(p => ({ ...p, billingDate: val }))} required />
+                <div className="table-wrapper">
+                  <table key={`table-${resetKey}`}>
+                    <thead>
+                      <tr>
+                        <th style={{ minWidth: "220px" }}>Code & Description</th>
+                        <th style={{ minWidth: "120px" }}>Color</th>
+                        <th style={{ minWidth: "140px" }}>Received Date</th>
+                        <th style={{ minWidth: "160px" }}>Challan & PI</th>
+                        <th style={{ minWidth: "120px" }}>Quantity</th>
+                        {/* Unit moved here, after Quantities */}
+                        <th style={{ minWidth: "100px" }}>Unit</th> 
+                        <th style={{ minWidth: "100px" }}>Price ($)</th>
+                        <th style={{ minWidth: "100px" }}>Total ($)</th>
+                        <th style={{ minWidth: "100px" }}>Appstreme</th>
+                        <th style={{ minWidth: "40px" }}></th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {items.map((item) => (
+                        <tr key={item.id}>
+                          <td>
+                            {previewMode ? <div>{item.fabricCode}<br/>{item.itemDescription}</div> : (
+                              <div style={{display:'flex', flexDirection:'column', gap:'4px'}}>
+                                <SmartInputField 
+                                  name="fabricCode"
+                                  value={item.fabricCode || ""} 
+                                  onChange={e => handleItemChange(item.id, 'fabricCode', e.target.value)} 
+                                  onSelectSuggestion={(name, val) => handleItemChange(item.id, 'fabricCode', val)}
+                                  suggestions={allFabricCodes}
+                                  threshold={1}
+                                />
+                                <input type="text" value={item.itemDescription || ""} onChange={e => handleItemChange(item.id, 'itemDescription', e.target.value)} placeholder="Description" autoComplete="off" />
+                              </div>
+                            )}
+                          </td>
+                          <td>
+                            {previewMode ? <div>{item.color}</div> : (
+                              <div style={{display:'flex', flexDirection:'column', gap:'4px'}}>
+                                <SmartInputField 
+                                  name="color"
+                                  value={item.color || ""} 
+                                  onChange={e => handleItemChange(item.id, 'color', e.target.value)} 
+                                  onSelectSuggestion={(name, val) => {
+                                    handleItemChange(item.id, 'color', val);
+                                    saveColorToPersistent(val);
+                                  }}
+                                  suggestions={allColors}
+                                  threshold={1}
+                                  placeholder="Color"
+                                />
+                              </div>
+                            )}
+                          </td>
+                          <td>
+                            {previewMode ? <span>{item.rcvdDate}</span> : <SmartDateInput value={item.rcvdDate} onChange={val => handleItemChange(item.id, 'rcvdDate', val)} />}
+                          </td>
+                          <td>
+                            {previewMode ? <div>{item.challanNo}<br/>{item.piNumber}</div> : (
+                              <div style={{display:'flex', flexDirection:'column', gap:'4px'}}>
+                                <input type="text" value={item.challanNo || ""} onChange={e => handleItemChange(item.id, 'challanNo', e.target.value)} placeholder="Challan" autoComplete="off" />
+                                <input type="text" value={item.piNumber || ""} onChange={e => handleItemChange(item.id, 'piNumber', e.target.value)} placeholder="PI" autoComplete="off" />
+                              </div>
+                            )}
+                          </td>
+                          <td>
+                            {previewMode ? <div>Qty: {item.invoiceQty}</div> : (
+                              <div style={{display:'flex', flexDirection:'column', gap:'4px'}}>
+                                <input 
+                                  type="number" 
+                                  value={item.invoiceQty === 0 ? "" : item.invoiceQty} 
+                                  onChange={e => handleItemChange(item.id, 'invoiceQty', parseFloat(e.target.value)||0)} 
+                                  placeholder="Quantity" 
+                                  autoComplete="off"
+                                />
+                              </div>
+                            )}
+                          </td>
+                          {/* Unit Data moved here */}
+                          <td>
+                            {previewMode ? <span>{item.unit}</span> : (
+                              <select value={item.unit} onChange={e => handleItemChange(item.id, 'unit', e.target.value)}>
+                                <option>YDS</option><option>PCS</option><option>KG</option><option>MTR</option><option>BOX</option>
+                              </select>
+                            )}
+                          </td>
+                          <td>
+                            {previewMode ? <span>${item.unitPrice}</span> : (
+                              <input 
+                                type="number" 
+                                value={item.unitPrice === 0 ? "" : item.unitPrice} 
+                                onChange={e => handleItemChange(item.id, 'unitPrice', parseFloat(e.target.value)||0)} 
+                                step="0.01" 
+                                placeholder="Price"
+                                autoComplete="off"
+                              />
+                            )}
+                          </td>
+                          <td style={{textAlign:'right'}}><strong>${(item.invoiceQty * item.unitPrice).toFixed(2)}</strong></td>
+                          <td>
+                            {previewMode ? <span>{item.appstremeNo}</span> : (
+                              <input type="text" value={item.appstremeNo || ""} onChange={e => handleItemChange(item.id, 'appstremeNo', e.target.value)} placeholder="Receipt No" autoComplete="off" />
+                            )}
+                          </td>
+                          <td>{!previewMode && <button className="btn btn-danger btn-sm" onClick={() => removeRow(item.id)} disabled={items.length===1}><Trash2 size={14}/></button>}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
                 </div>
               </div>
             </div>
-          </div>
 
-          <div className="table-section">
-            <div className="table-header">
-              <div className="table-title">Line Items ({items.length})</div>
-              <div className="table-controls">
-                {!previewMode && (
+            <footer className="app-footer">
+              <div className="footer-summary">
+                <div className="footer-summary-item">
+                  <div className="footer-summary-label">Buyer Name</div>
+                  <div className="footer-summary-value">{header.buyerName || "None"}</div>
+                </div>
+                <div className={`footer-summary-item ${hasQtyMismatch ? "qty-mismatch" : ""}`}>
+                  <div className="footer-summary-label">Invoice Qty</div>
+                  <div className="footer-summary-value">{totals.totalInvoiceQty.toFixed(2)}</div>
+                </div>
+                <div className={`footer-summary-item ${hasQtyMismatch ? "qty-mismatch" : ""}`}>
+                  <div className="footer-summary-label">Received Qty</div>
+                  <div className="footer-summary-value">{totals.totalRcvdQty.toFixed(2)}</div>
+                </div>
+                <div className="footer-summary-item">
+                  <div className="footer-summary-label">Total Value</div>
+                  <div className="footer-summary-value">{formatCurrency(totals.totalValue)}</div>
+                </div>
+              </div>
+              <div className="footer-actions">
+                {currentReportId && (
                   <button 
-                    className="btn btn-secondary btn-sm" 
-                    style={{ backgroundColor: '#fff', border: '1px solid #fee2e2', color: '#dc2626' }} 
-                    onClick={clearAll}
+                    className="btn btn-secondary" 
+                    onClick={() => {
+                      setCurrentReportId(null);
+                      alert("Switched to New Report mode. Clicking Generate will now create a new entry.");
+                    }}
                   >
-                    <RotateCcw size={16} />
-                    Clear All
+                    <Plus size={18} />
+                    Save as New
                   </button>
                 )}
-                <button className="btn btn-secondary btn-sm" onClick={() => setPreviewMode(!previewMode)}>
-                  <Eye size={16} />
-                  {previewMode ? "Edit" : "Preview"}
-                </button>
-                <button className="btn btn-primary btn-sm" onClick={addNewRow}>
-                  <Plus size={16} />
-                  Add Row
+                <button className="btn btn-success" onClick={handleGenerate}>
+                  <Download size={18} />
+                  {currentReportId ? "Generate & Update Report" : "Generate Report (PDF & Excel)"}
                 </button>
               </div>
+            </footer>
+          </>
+        ) : (
+          <div className="main-panel p-6">
+            <div className="flex justify-between items-center mb-6">
+              <h2 className="text-2xl font-bold text-slate-800 flex items-center gap-2">
+                <LayoutDashboard className="text-blue-600" />
+                Public Report Dashboard
+              </h2>
+              <div className="relative w-96">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+                <input 
+                  type="text" 
+                  placeholder="Search by Invoice No or Amount..." 
+                  className="w-full pl-10 pr-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+                  value={publicSearch}
+                  onChange={(e) => setPublicSearch(e.target.value)}
+                />
+              </div>
             </div>
-            <div className="table-wrapper">
-              <table key={`table-${resetKey}`}>
-                <thead>
+
+            <div className="bg-white border rounded-xl overflow-hidden shadow-sm">
+              <table className="w-full">
+                <thead className="bg-slate-50 border-b">
                   <tr>
-                    <th style={{ minWidth: "220px" }}>Code & Description</th>
-                    <th style={{ minWidth: "120px" }}>Color</th>
-                    <th style={{ minWidth: "140px" }}>Received Date</th>
-                    <th style={{ minWidth: "160px" }}>Challan & PI</th>
-                    <th style={{ minWidth: "120px" }}>Quantity</th>
-                    {/* Unit moved here, after Quantities */}
-                    <th style={{ minWidth: "100px" }}>Unit</th> 
-                    <th style={{ minWidth: "100px" }}>Price ($)</th>
-                    <th style={{ minWidth: "100px" }}>Total ($)</th>
-                    <th style={{ minWidth: "100px" }}>Appstreme</th>
-                    <th style={{ minWidth: "40px" }}></th>
+                    <th className="px-6 py-4 text-left text-xs font-bold text-slate-500 uppercase tracking-wider">Invoice No</th>
+                    <th className="px-6 py-4 text-left text-xs font-bold text-slate-500 uppercase tracking-wider">Buyer</th>
+                    <th className="px-6 py-4 text-left text-xs font-bold text-slate-500 uppercase tracking-wider">Billing Date</th>
+                    <th className="px-6 py-4 text-right text-xs font-bold text-slate-500 uppercase tracking-wider">Total Amount</th>
+                    <th className="px-6 py-4 text-center text-xs font-bold text-slate-500 uppercase tracking-wider">Status</th>
                   </tr>
                 </thead>
-                <tbody>
-                  {items.map((item) => (
-                    <tr key={item.id}>
-                      <td>
-                        {previewMode ? <div>{item.fabricCode}<br/>{item.itemDescription}</div> : (
-                          <div style={{display:'flex', flexDirection:'column', gap:'4px'}}>
-                            <SmartInputField 
-                              name="fabricCode"
-                              value={item.fabricCode || ""} 
-                              onChange={e => handleItemChange(item.id, 'fabricCode', e.target.value)} 
-                              onSelectSuggestion={(name, val) => handleItemChange(item.id, 'fabricCode', val)}
-                              suggestions={allFabricCodes}
-                              threshold={1}
-                            />
-                            <input type="text" value={item.itemDescription || ""} onChange={e => handleItemChange(item.id, 'itemDescription', e.target.value)} placeholder="Description" autoComplete="off" />
-                          </div>
-                        )}
+                <tbody className="divide-y divide-slate-100">
+                  {isFetchingReports ? (
+                    <tr>
+                      <td colSpan={5} className="px-6 py-12 text-center text-slate-400 italic">
+                        Loading reports...
                       </td>
-                      <td>
-                        {previewMode ? <div>{item.color}</div> : (
-                          <div style={{display:'flex', flexDirection:'column', gap:'4px'}}>
-                            <SmartInputField 
-                              name="color"
-                              value={item.color || ""} 
-                              onChange={e => handleItemChange(item.id, 'color', e.target.value)} 
-                              onSelectSuggestion={(name, val) => {
-                                handleItemChange(item.id, 'color', val);
-                                saveColorToPersistent(val);
-                              }}
-                              suggestions={allColors}
-                              threshold={1}
-                              placeholder="Color"
-                            />
-                          </div>
-                        )}
-                      </td>
-                      <td>
-                        {previewMode ? <span>{item.rcvdDate}</span> : <SmartDateInput value={item.rcvdDate} onChange={val => handleItemChange(item.id, 'rcvdDate', val)} />}
-                      </td>
-                      <td>
-                        {previewMode ? <div>{item.challanNo}<br/>{item.piNumber}</div> : (
-                          <div style={{display:'flex', flexDirection:'column', gap:'4px'}}>
-                            <input type="text" value={item.challanNo || ""} onChange={e => handleItemChange(item.id, 'challanNo', e.target.value)} placeholder="Challan" autoComplete="off" />
-                            <input type="text" value={item.piNumber || ""} onChange={e => handleItemChange(item.id, 'piNumber', e.target.value)} placeholder="PI" autoComplete="off" />
-                          </div>
-                        )}
-                      </td>
-                      <td>
-                        {previewMode ? <div>Qty: {item.invoiceQty}</div> : (
-                          <div style={{display:'flex', flexDirection:'column', gap:'4px'}}>
-                            <input 
-                              type="number" 
-                              value={item.invoiceQty === 0 ? "" : item.invoiceQty} 
-                              onChange={e => handleItemChange(item.id, 'invoiceQty', parseFloat(e.target.value)||0)} 
-                              placeholder="Quantity" 
-                              autoComplete="off"
-                            />
-                          </div>
-                        )}
-                      </td>
-                      {/* Unit Data moved here */}
-                      <td>
-                        {previewMode ? <span>{item.unit}</span> : (
-                          <select value={item.unit} onChange={e => handleItemChange(item.id, 'unit', e.target.value)}>
-                            <option>YDS</option><option>PCS</option><option>KG</option><option>MTR</option><option>BOX</option>
-                          </select>
-                        )}
-                      </td>
-                      <td>
-                        {previewMode ? <span>${item.unitPrice}</span> : (
-                          <input 
-                            type="number" 
-                            value={item.unitPrice === 0 ? "" : item.unitPrice} 
-                            onChange={e => handleItemChange(item.id, 'unitPrice', parseFloat(e.target.value)||0)} 
-                            step="0.01" 
-                            placeholder="Price"
-                            autoComplete="off"
-                          />
-                        )}
-                      </td>
-                      <td style={{textAlign:'right'}}><strong>${(item.invoiceQty * item.unitPrice).toFixed(2)}</strong></td>
-                      <td>
-                        {previewMode ? <span>{item.appstremeNo}</span> : (
-                          <input type="text" value={item.appstremeNo || ""} onChange={e => handleItemChange(item.id, 'appstremeNo', e.target.value)} placeholder="Receipt No" autoComplete="off" />
-                        )}
-                      </td>
-                      <td>{!previewMode && <button className="btn btn-danger btn-sm" onClick={() => removeRow(item.id)} disabled={items.length===1}><Trash2 size={14}/></button>}</td>
                     </tr>
-                  ))}
+                  ) : publicReports.filter(r => 
+                    r.invoice_no?.toLowerCase().includes(publicSearch.toLowerCase()) ||
+                    r.total_amount?.toString().includes(publicSearch)
+                  ).length > 0 ? (
+                    publicReports.filter(r => 
+                      r.invoice_no?.toLowerCase().includes(publicSearch.toLowerCase()) ||
+                      r.total_amount?.toString().includes(publicSearch)
+                    ).map((report) => (
+                      <tr key={report.id} className="hover:bg-slate-50 transition-colors">
+                        <td className="px-6 py-4 font-bold text-blue-600">{report.invoice_no}</td>
+                        <td className="px-6 py-4 text-slate-600">{report.buyer_name}</td>
+                        <td className="px-6 py-4 text-slate-600 font-mono">{report.billing_date}</td>
+                        <td className="px-6 py-4 text-right font-bold text-emerald-600">{formatCurrency(report.total_amount)}</td>
+                        <td className="px-6 py-4 text-center">
+                          <span className="px-2 py-1 bg-emerald-100 text-emerald-700 text-[10px] font-bold rounded uppercase">Recorded</span>
+                        </td>
+                      </tr>
+                    ))
+                  ) : (
+                    <tr>
+                      <td colSpan={5} className="px-6 py-12 text-center text-slate-400 italic">
+                        No reports found matching your search.
+                      </td>
+                    </tr>
+                  )}
                 </tbody>
               </table>
             </div>
           </div>
-        </div>
+        )}
       </div>
-
-      <footer className="app-footer">
-        <div className="footer-summary">
-          <div className="footer-summary-item">
-            <div className="footer-summary-label">Buyer Name</div>
-            <div className="footer-summary-value">{header.buyerName || "None"}</div>
-          </div>
-          <div className={`footer-summary-item ${hasQtyMismatch ? "qty-mismatch" : ""}`}>
-            <div className="footer-summary-label">Invoice Qty</div>
-            <div className="footer-summary-value">{totals.totalInvoiceQty.toFixed(2)}</div>
-          </div>
-          <div className={`footer-summary-item ${hasQtyMismatch ? "qty-mismatch" : ""}`}>
-            <div className="footer-summary-label">Received Qty</div>
-            <div className="footer-summary-value">{totals.totalRcvdQty.toFixed(2)}</div>
-          </div>
-          <div className="footer-summary-item">
-            <div className="footer-summary-label">Total Value</div>
-            <div className="footer-summary-value">{formatCurrency(totals.totalValue)}</div>
-          </div>
-        </div>
-        <div className="footer-actions">
-          {currentReportId && (
-            <button 
-              className="btn btn-secondary" 
-              onClick={() => {
-                setCurrentReportId(null);
-                alert("Switched to New Report mode. Clicking Generate will now create a new entry.");
-              }}
-            >
-              <Plus size={18} />
-              Save as New
-            </button>
-          )}
-          <button className="btn btn-success" onClick={handleGenerate}>
-            <Download size={18} />
-            {currentReportId ? "Generate & Update Report" : "Generate Report (PDF & Excel)"}
-          </button>
-        </div>
-      </footer>
     </div>
   );
 };

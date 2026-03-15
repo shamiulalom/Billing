@@ -42,11 +42,11 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, onDataCh
   const adminPassword = import.meta.env.VITE_ADMIN_PASSWORD || "admin123";
 
   useEffect(() => {
-    if (isAuthenticated) {
+    if (isOpen) {
       fetchData();
       checkSyncStatus();
     }
-  }, [isAuthenticated, activeTab]);
+  }, [isOpen, activeTab]);
 
   const checkSyncStatus = async () => {
     const sb = getSupabase();
@@ -144,20 +144,28 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, onDataCh
     }
   };
 
-  const deleteItem = async (id: string) => {
+  const deleteItem = async (id: any) => {
     const sb = getSupabase();
     if (!sb) return;
 
-    if (confirm("Are you sure you want to delete this?")) {
+    if (window.confirm("Are you sure you want to delete this permanently?")) {
       try {
         const table = activeTab === "dashboard" ? "reports" : activeTab;
+        console.log(`Deleting from ${table} where id = ${id}`);
+        
         const { error } = await sb.from(table).delete().eq("id", id);
-        if (error) throw error;
-        fetchData();
+        
+        if (error) {
+          console.error("Supabase delete error:", error);
+          throw error;
+        }
+        
+        alert("Deleted successfully!");
+        await fetchData();
         onDataChange();
       } catch (error: any) {
-        console.error("Delete error:", error);
-        alert(`Error deleting item: ${error.message}`);
+        console.error("Delete error details:", error);
+        alert(`Error deleting item: ${error.message || "Unknown error"}`);
       }
     }
   };
