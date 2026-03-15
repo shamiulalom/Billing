@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo } from "react";
-import { FileText, Plus, Trash2, Download, Eye, RotateCcw, Settings } from "lucide-react";
+import { FileText, Plus, Trash2, Download, Eye, RotateCcw, Settings, Edit2 } from "lucide-react";
 import { ReportHeader, LineItem } from "./types";
 import { formatCurrency } from "./utils";
 import { calculateTotals, generateReports } from "./services/reportService";
@@ -217,6 +217,7 @@ const App: React.FC = () => {
   const [resetKey, setResetKey] = useState(0);
   const [persistentColors, setPersistentColors] = useState<string[]>([]);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [currentReportId, setCurrentReportId] = useState<string | null>(null);
   
   // Supabase Data States
   const [supabaseBuyers, setSupabaseBuyers] = useState<{ name: string; file_no: string }[]>([]);
@@ -517,6 +518,7 @@ const App: React.FC = () => {
     
     // 3. Reset Preview State
     setPreviewMode(false);
+    setCurrentReportId(null);
 
     // 4. Force UI Refresh of all inputs
     setResetKey(prev => prev + 1);
@@ -533,9 +535,60 @@ const App: React.FC = () => {
 
     try {
       await generateReports(header, items);
+      
+      // Save to Supabase Dashboard
+      const sb = getSupabase();
+      if (sb) {
+        const reportData = {
+          buyer_name: header.buyerName,
+          supplier_name: header.supplierName,
+          file_no: header.fileNo,
+          invoice_no: header.invoiceNo,
+          lc_number: header.lcNumber,
+          invoice_date: header.invoiceDate,
+          billing_date: header.billingDate,
+          items: items,
+          total_invoice_qty: totals.totalInvoiceQty,
+          total_rcvd_qty: totals.totalRcvdQty,
+          total_amount: totals.totalValue,
+          updated_at: new Date().toISOString()
+        };
+
+        if (currentReportId) {
+          console.log("Updating existing report:", currentReportId);
+          const { error } = await sb.from("reports").update(reportData).eq("id", currentReportId);
+          if (error) throw error;
+          alert("✅ Report Updated in Dashboard!");
+        } else {
+          console.log("Inserting new report");
+          const { data, error } = await sb.from("reports").insert([reportData]).select();
+          if (error) throw error;
+          if (data?.[0]) {
+            setCurrentReportId(data[0].id);
+            alert("✅ New Report Saved to Dashboard!");
+          }
+        }
+      }
     } catch (error) {
+      console.error("Error generating/saving report:", error);
       alert("❌ Error generating reports.");
     }
+  };
+
+  const loadReport = (report: any) => {
+    setCurrentReportId(report.id);
+    setHeader({
+      buyerName: report.buyer_name || "",
+      supplierName: report.supplier_name || "",
+      fileNo: report.file_no || "",
+      invoiceNo: report.invoice_no || "",
+      lcNumber: report.lc_number || "",
+      invoiceDate: report.invoice_date || "",
+      billingDate: report.billing_date || "",
+    });
+    setItems(report.items || [createBlankItem()]);
+    setIsSettingsOpen(false);
+    setResetKey(prev => prev + 1);
   };
 
   const totals = calculateTotals(items);
@@ -563,10 +616,19 @@ const App: React.FC = () => {
         isOpen={isSettingsOpen} 
         onClose={() => setIsSettingsOpen(false)} 
         onDataChange={fetchSupabaseData}
+        onLoadReport={loadReport}
       />
 
       <div className="content-wrapper">
         <div className="main-panel">
+          {currentReportId && (
+            <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg flex justify-between items-center">
+              <div className="flex items-center gap-2 text-blue-700 text-sm font-bold">
+                <Edit2 size={16} />
+                Editing Existing Report (Changes will update the dashboard record)
+              </div>
+            </div>
+          )}
           <div className="form-section" key={resetKey}>
             <div className="bill-info-header">
               <FileText size={18} />
@@ -796,9 +858,21 @@ const App: React.FC = () => {
           </div>
         </div>
         <div className="footer-actions">
+          {currentReportId && (
+            <button 
+              className="btn btn-secondary" 
+              onClick={() => {
+                setCurrentReportId(null);
+                alert("Switched to New Report mode. Clicking Generate will now create a new entry.");
+              }}
+            >
+              <Plus size={18} />
+              Save as New
+            </button>
+          )}
           <button className="btn btn-success" onClick={handleGenerate}>
             <Download size={18} />
-            Generate Report (PDF & Excel)
+            {currentReportId ? "Generate & Update Report" : "Generate Report (PDF & Excel)"}
           </button>
         </div>
       </footer>

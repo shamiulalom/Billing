@@ -53,7 +53,7 @@ export const generateReports = async (header: ReportHeader, items: LineItem[]) =
   }
 };
 
-const generatePDF = async (header: ReportHeader, items: LineItem[], totals: Totals, filename: string) => {
+export const generatePDF = async (header: ReportHeader, items: LineItem[], totals: Totals, filename: string) => {
   const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
   const pageWidth = doc.internal.pageSize.getWidth(); 
   const pageHeight = doc.internal.pageSize.getHeight(); 
@@ -216,7 +216,7 @@ const generatePDF = async (header: ReportHeader, items: LineItem[], totals: Tota
   doc.save(`${filename}.pdf`);
 };
 
-const generateExcel = async (header: ReportHeader, items: LineItem[], totals: Totals, filename: string) => {
+export const generateExcel = async (header: ReportHeader, items: LineItem[], totals: Totals, filename: string) => {
   // Use the default export to instantiate Workbook
   const workbook = new ExcelJS.Workbook();
   const worksheet = workbook.addWorksheet('Bill Of Exchange Report');

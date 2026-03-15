@@ -1,20 +1,23 @@
 import React, { useState, useEffect } from "react";
-import { X, Save, Trash2, Lock, Settings, Search, CloudUpload, Edit2, FileUp } from "lucide-react";
+import { X, Save, Trash2, Lock, Settings, Search, CloudUpload, Edit2, FileUp, LayoutDashboard, Download, FileSpreadsheet, FileText as PdfIcon } from "lucide-react";
 import { getSupabase } from "./services/supabase";
 import { RAW_CONTRACT_CSV } from "./data/contractData";
 import { RAW_FABRIC_CSV } from "./data/fabricData";
 import { RAW_SUPPLIER_CSV } from "./data/supplierData";
+import { generatePDF, generateExcel, calculateTotals } from "./services/reportService";
+import { getFilenameDate } from "./utils";
 
 interface SettingsModalProps {
   isOpen: boolean;
   onClose: () => void;
   onDataChange: () => void;
+  onLoadReport: (report: any) => void;
 }
 
-const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, onDataChange }) => {
+const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, onDataChange, onLoadReport }) => {
   const [password, setPassword] = useState("");
   const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [activeTab, setActiveTab] = useState<"buyers" | "fabrics" | "colors" | "suppliers">("buyers");
+  const [activeTab, setActiveTab] = useState<"buyers" | "fabrics" | "colors" | "suppliers" | "dashboard">("buyers");
   const [searchQuery, setSearchQuery] = useState("");
   const [isPushing, setIsPushing] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
@@ -29,6 +32,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, onDataCh
   const [fabrics, setFabrics] = useState<{ id: string; code: string; description: string }[]>([]);
   const [colors, setColors] = useState<{ id: string; name: string }[]>([]);
   const [suppliers, setSuppliers] = useState<{ id: string; code: string; name: string }[]>([]);
+  const [reports, setReports] = useState<any[]>([]);
   
   const [newBuyer, setNewBuyer] = useState({ name: "", file_no: "" });
   const [newFabric, setNewFabric] = useState({ code: "", description: "" });
@@ -81,6 +85,9 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, onDataCh
     } else if (activeTab === "suppliers") {
       const { data } = await sb.from("suppliers").select("*").order("name");
       setSuppliers(data || []);
+    } else if (activeTab === "dashboard") {
+      const { data } = await sb.from("reports").select("*").order("updated_at", { ascending: false });
+      setReports(data || []);
     }
   };
 
@@ -141,9 +148,10 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, onDataCh
     const sb = getSupabase();
     if (!sb) return;
 
-    if (confirm("Are you sure you want to delete this item?")) {
+    if (confirm("Are you sure you want to delete this?")) {
       try {
-        const { error } = await sb.from(activeTab).delete().eq("id", id);
+        const table = activeTab === "dashboard" ? "reports" : activeTab;
+        const { error } = await sb.from(table).delete().eq("id", id);
         if (error) throw error;
         fetchData();
         onDataChange();
@@ -303,7 +311,34 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, onDataCh
     if (activeTab === "fabrics") return fabrics.filter(f => f.code.toLowerCase().includes(query) || f.description.toLowerCase().includes(query));
     if (activeTab === "colors") return colors.filter(c => c.name.toLowerCase().includes(query));
     if (activeTab === "suppliers") return suppliers.filter(s => s.code.toLowerCase().includes(query) || s.name.toLowerCase().includes(query));
+    if (activeTab === "dashboard") return reports.filter(r => 
+      r.buyer_name?.toLowerCase().includes(query) || 
+      r.invoice_no?.toLowerCase().includes(query) ||
+      r.file_no?.toLowerCase().includes(query)
+    );
     return [];
+  };
+
+  const downloadReport = async (report: any, type: 'pdf' | 'excel') => {
+    const header = {
+      buyerName: report.buyer_name,
+      supplierName: report.supplier_name,
+      fileNo: report.file_no,
+      invoiceNo: report.invoice_no,
+      lcNumber: report.lc_number,
+      invoiceDate: report.invoice_date,
+      billingDate: report.billing_date,
+    };
+    const items = report.items;
+    const totals = calculateTotals(items);
+    const filenameDate = getFilenameDate(header.billingDate);
+    const filename = `Bill of Buyer ${header.buyerName} $${totals.totalValue.toFixed(2)} DATE-${filenameDate}`;
+
+    if (type === 'pdf') {
+      await generatePDF(header, items, totals, filename);
+    } else {
+      await generateExcel(header, items, totals, filename);
+    }
   };
 
   const startEdit = (item: any) => {
@@ -319,7 +354,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, onDataCh
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[1000] p-4">
       <div className="bg-white rounded-xl shadow-2xl w-full max-w-3xl max-h-[90vh] flex flex-col overflow-hidden">
-        <div className="p-4 border-bottom flex justify-between items-center bg-slate-50">
+        <div className="p-4 border-b border-slate-200 flex justify-between items-center bg-slate-50">
           <h2 className="text-xl font-bold flex items-center gap-2">
             <Settings size={20} />
             Management Settings
@@ -391,12 +426,14 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, onDataCh
           </div>
         ) : (
           <>
-            <div className="flex border-bottom bg-slate-50">
-              {(["buyers", "fabrics", "colors", "suppliers"] as const).map((tab) => (
+            <div className="flex border-b border-slate-200 bg-slate-50 overflow-x-auto shrink-0">
+              {(["dashboard", "buyers", "fabrics", "colors", "suppliers"] as const).map((tab) => (
                 <button
                   key={tab}
-                  className={`flex-1 p-3 text-sm font-semibold capitalize transition-colors ${
-                    activeTab === tab ? "bg-white border-t-2 border-blue-600 text-blue-600" : "text-slate-500 hover:bg-slate-100"
+                  className={`flex-1 min-w-[120px] p-4 text-sm font-bold capitalize transition-all flex items-center justify-center gap-2 border-r border-slate-200 last:border-r-0 ${
+                    activeTab === tab 
+                      ? "bg-white border-t-4 border-t-blue-600 text-blue-600 shadow-sm" 
+                      : "text-slate-500 hover:bg-slate-100 hover:text-slate-700"
                   }`}
                   onClick={() => {
                     setActiveTab(tab);
@@ -404,91 +441,94 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, onDataCh
                     setSearchQuery("");
                   }}
                 >
-                  {tab}
+                  {tab === "dashboard" && <LayoutDashboard size={18} />}
+                  <span>{tab}</span>
                 </button>
               ))}
             </div>
 
             <div className="p-4 flex-1 overflow-y-auto">
-              <div className="mb-6 bg-slate-50 p-4 rounded-lg border border-slate-200">
-                <h4 className="text-sm font-bold mb-3 uppercase tracking-wider text-slate-500">
-                  {editingId ? "Edit" : "Add New"} {activeTab.slice(0, -1)}
-                </h4>
-                <div className="flex gap-2">
-                  {activeTab === "buyers" && (
-                    <>
+              {activeTab !== "dashboard" && (
+                <div className="mb-6 bg-slate-50 p-4 rounded-lg border border-slate-200">
+                  <h4 className="text-sm font-bold mb-3 uppercase tracking-wider text-slate-500">
+                    {editingId ? "Edit" : "Add New"} {activeTab.slice(0, -1)}
+                  </h4>
+                  <div className="flex gap-2">
+                    {activeTab === "buyers" && (
+                      <>
+                        <input
+                          type="text"
+                          placeholder="Buyer Name"
+                          className="flex-1 p-2 border rounded text-sm"
+                          value={newBuyer.name}
+                          onChange={(e) => setNewBuyer({ ...newBuyer, name: e.target.value })}
+                        />
+                        <input
+                          type="text"
+                          placeholder="File No (Optional)"
+                          className="w-32 p-2 border rounded text-sm"
+                          value={newBuyer.file_no}
+                          onChange={(e) => setNewBuyer({ ...newBuyer, file_no: e.target.value })}
+                        />
+                      </>
+                    )}
+                    {activeTab === "fabrics" && (
+                      <>
+                        <input
+                          type="text"
+                          placeholder="Fabric Code"
+                          className="w-32 p-2 border rounded text-sm"
+                          value={newFabric.code}
+                          onChange={(e) => setNewFabric({ ...newFabric, code: e.target.value })}
+                        />
+                        <input
+                          type="text"
+                          placeholder="Description"
+                          className="flex-1 p-2 border rounded text-sm"
+                          value={newFabric.description}
+                          onChange={(e) => setNewFabric({ ...newFabric, description: e.target.value })}
+                        />
+                      </>
+                    )}
+                    {activeTab === "colors" && (
                       <input
                         type="text"
-                        placeholder="Buyer Name"
+                        placeholder="Color Name"
                         className="flex-1 p-2 border rounded text-sm"
-                        value={newBuyer.name}
-                        onChange={(e) => setNewBuyer({ ...newBuyer, name: e.target.value })}
+                        value={newColor}
+                        onChange={(e) => setNewColor(e.target.value)}
                       />
-                      <input
-                        type="text"
-                        placeholder="File No (Optional)"
-                        className="w-32 p-2 border rounded text-sm"
-                        value={newBuyer.file_no}
-                        onChange={(e) => setNewBuyer({ ...newBuyer, file_no: e.target.value })}
-                      />
-                    </>
-                  )}
-                  {activeTab === "fabrics" && (
-                    <>
-                      <input
-                        type="text"
-                        placeholder="Fabric Code"
-                        className="w-32 p-2 border rounded text-sm"
-                        value={newFabric.code}
-                        onChange={(e) => setNewFabric({ ...newFabric, code: e.target.value })}
-                      />
-                      <input
-                        type="text"
-                        placeholder="Description"
-                        className="flex-1 p-2 border rounded text-sm"
-                        value={newFabric.description}
-                        onChange={(e) => setNewFabric({ ...newFabric, description: e.target.value })}
-                      />
-                    </>
-                  )}
-                  {activeTab === "colors" && (
-                    <input
-                      type="text"
-                      placeholder="Color Name"
-                      className="flex-1 p-2 border rounded text-sm"
-                      value={newColor}
-                      onChange={(e) => setNewColor(e.target.value)}
-                    />
-                  )}
-                  {activeTab === "suppliers" && (
-                    <>
-                      <input
-                        type="text"
-                        placeholder="Supplier Code"
-                        className="w-32 p-2 border rounded text-sm"
-                        value={newSupplier.code}
-                        onChange={(e) => setNewSupplier({ ...newSupplier, code: e.target.value })}
-                      />
-                      <input
-                        type="text"
-                        placeholder="Supplier Name"
-                        className="flex-1 p-2 border rounded text-sm"
-                        value={newSupplier.name}
-                        onChange={(e) => setNewSupplier({ ...newSupplier, name: e.target.value })}
-                      />
-                    </>
-                  )}
-                  <button onClick={addItem} className="bg-blue-600 text-white p-2 rounded hover:bg-blue-700 transition-colors flex items-center gap-1 text-sm font-bold px-4">
-                    <Save size={16} />
-                    {editingId ? "Update" : "Add"}
-                  </button>
-                  {editingId && (
-                    <button onClick={() => setEditingId(null)} className="bg-slate-200 text-slate-700 p-2 rounded hover:bg-slate-300 transition-colors text-sm font-bold px-4">
-                      Cancel
+                    )}
+                    {activeTab === "suppliers" && (
+                      <>
+                        <input
+                          type="text"
+                          placeholder="Supplier Code"
+                          className="w-32 p-2 border rounded text-sm"
+                          value={newSupplier.code}
+                          onChange={(e) => setNewSupplier({ ...newSupplier, code: e.target.value })}
+                        />
+                        <input
+                          type="text"
+                          placeholder="Supplier Name"
+                          className="flex-1 p-2 border rounded text-sm"
+                          value={newSupplier.name}
+                          onChange={(e) => setNewSupplier({ ...newSupplier, name: e.target.value })}
+                        />
+                      </>
+                    )}
+                    <button onClick={addItem} className="bg-blue-600 text-white p-2 rounded hover:bg-blue-700 transition-colors flex items-center gap-1 text-sm font-bold px-4">
+                      <Save size={16} />
+                      {editingId ? "Update" : "Add"}
                     </button>
-                  )}
+                    {editingId && (
+                      <button onClick={() => setEditingId(null)} className="bg-slate-200 text-slate-700 p-2 rounded hover:bg-slate-300 transition-colors text-sm font-bold px-4">
+                        Cancel
+                      </button>
+                    )}
+                  </div>
                 </div>
-              </div>
+              )}
 
               <div className="mb-4 relative">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
@@ -502,29 +542,84 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, onDataCh
               </div>
 
               <div className="space-y-2">
-                <h4 className="text-sm font-bold mb-3 uppercase tracking-wider text-slate-500">Existing {activeTab}</h4>
-                {filteredData().map((item: any) => (
-                  <div key={item.id} className="flex justify-between items-center p-3 bg-white border rounded-lg hover:border-blue-200 transition-colors group">
-                    <div>
-                      <div className="font-bold text-sm">
-                        {activeTab === "buyers" ? item.name : activeTab === "fabrics" ? item.code : activeTab === "suppliers" ? item.code : item.name}
+                <h4 className="text-sm font-bold mb-3 uppercase tracking-wider text-slate-500">
+                  {activeTab === "dashboard" ? "Generated Bills History" : `Existing ${activeTab}`}
+                </h4>
+                
+                {activeTab === "dashboard" ? (
+                  filteredData().map((report: any) => (
+                    <div key={report.id} className="flex flex-col p-4 bg-white border rounded-lg hover:border-blue-200 transition-colors gap-3">
+                      <div className="flex justify-between items-start">
+                        <div>
+                          <div className="font-bold text-blue-600">{report.buyer_name}</div>
+                          <div className="text-xs text-slate-500 flex gap-3 mt-1">
+                            <span>Inv: {report.invoice_no}</span>
+                            <span>File: {report.file_no}</span>
+                            <span>Date: {report.billing_date}</span>
+                          </div>
+                        </div>
+                        <div className="text-right">
+                          <div className="font-bold text-slate-700">${report.total_amount?.toLocaleString()}</div>
+                          <div className="text-[10px] text-slate-400">{new Date(report.created_at).toLocaleString()}</div>
+                        </div>
                       </div>
-                      <div className="text-xs text-slate-500">
-                        {activeTab === "buyers" ? (item.file_no ? `File: ${item.file_no}` : "") : 
-                         activeTab === "fabrics" ? item.description : 
-                         activeTab === "suppliers" ? item.name : ""}
+                      
+                      <div className="flex justify-between items-center pt-2 border-t border-slate-100">
+                        <div className="flex gap-2">
+                          <button 
+                            onClick={() => downloadReport(report, 'pdf')}
+                            className="flex items-center gap-1 text-[10px] font-bold bg-red-50 text-red-600 px-2 py-1 rounded hover:bg-red-100 transition-colors"
+                          >
+                            <PdfIcon size={12} /> PDF
+                          </button>
+                          <button 
+                            onClick={() => downloadReport(report, 'excel')}
+                            className="flex items-center gap-1 text-[10px] font-bold bg-emerald-50 text-emerald-600 px-2 py-1 rounded hover:bg-emerald-100 transition-colors"
+                          >
+                            <FileSpreadsheet size={12} /> Excel
+                          </button>
+                        </div>
+                        <div className="flex gap-2">
+                          <button 
+                            onClick={() => onLoadReport(report)}
+                            className="flex items-center gap-1 text-[10px] font-bold bg-blue-600 text-white px-3 py-1 rounded hover:bg-blue-700 transition-colors"
+                          >
+                            <Edit2 size={12} /> Edit & Re-download
+                          </button>
+                          <button 
+                            onClick={() => deleteItem(report.id)}
+                            className="text-slate-300 hover:text-red-600 transition-colors p-1"
+                          >
+                            <Trash2 size={14} />
+                          </button>
+                        </div>
                       </div>
                     </div>
-                    <div className="flex items-center gap-1">
-                      <button onClick={() => startEdit(item)} className="text-slate-300 hover:text-blue-600 transition-colors p-2">
-                        <Edit2 size={16} />
-                      </button>
-                      <button onClick={() => deleteItem(item.id)} className="text-slate-300 hover:text-red-600 transition-colors p-2">
-                        <Trash2 size={16} />
-                      </button>
+                  ))
+                ) : (
+                  filteredData().map((item: any) => (
+                    <div key={item.id} className="flex justify-between items-center p-3 bg-white border rounded-lg hover:border-blue-200 transition-colors group">
+                      <div>
+                        <div className="font-bold text-sm">
+                          {activeTab === "buyers" ? item.name : activeTab === "fabrics" ? item.code : activeTab === "suppliers" ? item.code : item.name}
+                        </div>
+                        <div className="text-xs text-slate-500">
+                          {activeTab === "buyers" ? (item.file_no ? `File: ${item.file_no}` : "") : 
+                           activeTab === "fabrics" ? item.description : 
+                           activeTab === "suppliers" ? item.name : ""}
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <button onClick={() => startEdit(item)} className="text-slate-300 hover:text-blue-600 transition-colors p-2">
+                          <Edit2 size={16} />
+                        </button>
+                        <button onClick={() => deleteItem(item.id)} className="text-slate-300 hover:text-red-600 transition-colors p-2">
+                          <Trash2 size={16} />
+                        </button>
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  ))
+                )}
                 {filteredData().length === 0 && (
                   <div className="text-center p-8 text-slate-400 text-sm italic">
                     {searchQuery ? "No matching results found." : `No items found. Add your first ${activeTab.slice(0, -1)} above.`}
