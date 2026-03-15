@@ -1,0 +1,5 @@
+{
+  "name": "server of TTL -Bill Of Exchange Report ",
+  "description": "A professional inventory report generator that exports PDF and Excel files based on specific fabric and billing data.",
+  "requestFramePermissions": []
+}
