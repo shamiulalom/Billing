@@ -23,46 +23,13 @@ export const supabase = {} as SupabaseClient;
 /**
  * SQL SCHEMA FOR SUPABASE:
  * 
- * -- Buyers table
- * create table buyers (
- *   id uuid default gen_random_uuid() primary key,
- *   name text not null,
- *   file_no text unique,
- *   created_at timestamp with time zone default timezone('utc'::text, now()) not null
- * );
+ * For the full, production-ready schema including RLS policies, triggers, and the reports table,
+ * please refer to the `full_schema.sql` file in the root directory.
  * 
- * -- Fabrics table
- * create table fabrics (
- *   id uuid default gen_random_uuid() primary key,
- *   code text not null unique,
- *   description text,
- *   created_at timestamp with time zone default timezone('utc'::text, now()) not null
- * );
- * 
- * -- Colors table
- * create table colors (
- *   id uuid default gen_random_uuid() primary key,
- *   name text not null unique,
- *   created_at timestamp with time zone default timezone('utc'::text, now()) not null
- * );
- * 
- * -- Suppliers table
- * create table suppliers (
- *   id uuid default gen_random_uuid() primary key,
- *   code text not null unique,
- *   name text not null,
- *   created_at timestamp with time zone default timezone('utc'::text, now()) not null
- * );
- * 
- * -- Enable RLS
- * alter table buyers enable row level security;
- * alter table fabrics enable row level security;
- * alter table colors enable row level security;
- * alter table suppliers enable row level security;
- * 
- * -- Create policies
- * create policy "Public Access" on buyers for all using (true);
- * create policy "Public Access" on fabrics for all using (true);
- * create policy "Public Access" on colors for all using (true);
- * create policy "Public Access" on suppliers for all using (true);
+ * Summary of tables:
+ * - buyers (id, name, file_no, created_at)
+ * - fabrics (id, code, description, created_at)
+ * - colors (id, name, created_at)
+ * - suppliers (id, code, name, created_at)
+ * - reports (id, buyer_name, supplier_name, file_no, invoice_no, lc_number, invoice_date, billing_date, items, total_invoice_qty, total_rcvd_qty, total_amount, created_at, updated_at)
  */

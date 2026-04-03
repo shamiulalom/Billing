@@ -188,6 +188,23 @@ For Vercel production:
 
 ---
 
+## 💾 Database Setup (Supabase)
+
+If you want to change the database or clone the current working structure to a new Supabase project, follow these steps:
+
+1. **Create a New Supabase Project** at [supabase.com](https://supabase.com).
+2. **Run the Full SQL Script**:
+   - Open the **SQL Editor** in your Supabase dashboard.
+   - Copy and paste the contents of `full_schema.sql` (found in the root directory of this project).
+   - Click **Run**.
+3. **Configure Environment Variables**:
+   - Update your `.env.local` or Vercel environment variables with the new `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY`.
+4. **Push Initial Data**:
+   - Go to **Management Settings** (Admin Login) in the app.
+   - Click **"Push CSV Data"** to sync the default CSV records to your new database.
+
+---
+
 ## 📊 Report Features
 
 ### PDF

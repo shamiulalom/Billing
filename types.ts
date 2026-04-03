@@ -6,6 +6,7 @@ export interface ReportHeader {
   lcNumber: string;
   invoiceDate: string;
   billingDate: string; // Format: 01-Jan-2025
+  isFridaySkipped?: boolean;
 }
 
 export interface LineItem {

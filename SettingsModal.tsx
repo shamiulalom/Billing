@@ -336,6 +336,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, onDataCh
       lcNumber: report.lc_number,
       invoiceDate: report.invoice_date,
       billingDate: report.billing_date,
+      isFridaySkipped: report.is_friday_skipped,
     };
     const items = report.items;
     const totals = calculateTotals(items);

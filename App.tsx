@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useMemo } from "react";
 import { FileText, Plus, Trash2, Download, Eye, RotateCcw, Settings, Edit2, Search, LayoutDashboard } from "lucide-react";
 import { ReportHeader, LineItem } from "./types";
-import { formatCurrency } from "./utils";
+import { formatCurrency, getFilenameDate } from "./utils";
 import { calculateTotals, generateReports } from "./services/reportService";
 import { RAW_CONTRACT_CSV } from "./data/contractData";
 import { RAW_SUPPLIER_CSV } from "./data/supplierData";
@@ -18,6 +18,33 @@ const getTodayDateStr = () => {
   const m = months[today.getMonth()];
   const y = today.getFullYear();
   return `${d}/${m}/${y}`;
+};
+
+// Helper to check for Friday and adjust to Thursday
+const adjustFriday = (dateStr: string): { date: string, isAdjusted: boolean } => {
+  if (!dateStr) return { date: dateStr, isAdjusted: false };
+  const parts = dateStr.split('/');
+  if (parts.length !== 3) return { date: dateStr, isAdjusted: false };
+  
+  const [day, monthStr, year] = parts;
+  const monthIdx = months.indexOf(monthStr);
+  if (monthIdx === -1) return { date: dateStr, isAdjusted: false };
+  
+  const date = new Date(parseInt(year), monthIdx, parseInt(day));
+  if (isNaN(date.getTime())) return { date: dateStr, isAdjusted: false };
+  
+  // Friday is 5
+  if (date.getDay() === 5) {
+    const prevDay = new Date(date);
+    prevDay.setDate(date.getDate() - 1);
+    
+    const d = String(prevDay.getDate()).padStart(2, '0');
+    const m = months[prevDay.getMonth()];
+    const y = prevDay.getFullYear();
+    return { date: `${d}/${m}/${y}`, isAdjusted: true };
+  }
+  
+  return { date: dateStr, isAdjusted: false };
 };
 
 // Factory for a fresh, empty line item
@@ -117,7 +144,8 @@ const SmartDateInput: React.FC<{
   label?: string;
   required?: boolean;
   className?: string;
-}> = ({ value, onChange, label, required, className }) => {
+  isAdjusted?: boolean;
+}> = ({ value, onChange, label, required, className, isAdjusted }) => {
   const inputRef = useRef<HTMLInputElement>(null);
 
   const handleBlur = () => {
@@ -194,22 +222,28 @@ const SmartDateInput: React.FC<{
         onBlur={handleBlur}
         maxLength={11}
         data-is-date-input="true"
-        className="date-input-highlight"
+        className={`date-input-highlight ${isAdjusted ? "text-red-600 font-bold" : ""}`}
         autoComplete="off"
       />
+      {isAdjusted && <div className="text-[10px] text-red-600 font-bold mt-0.5">Friday Skipped (Adjusted to Thursday)</div>}
     </div>
   );
 };
 
 const App: React.FC = () => {
-  const [header, setHeader] = useState<ReportHeader>({
-    buyerName: "",
-    supplierName: "",
-    fileNo: "",
-    invoiceNo: "",
-    lcNumber: "",
-    invoiceDate: "",
-    billingDate: getTodayDateStr(),
+  const [header, setHeader] = useState<ReportHeader>(() => {
+    const today = getTodayDateStr();
+    const { date, isAdjusted } = adjustFriday(today);
+    return {
+      buyerName: "",
+      supplierName: "",
+      fileNo: "",
+      invoiceNo: "",
+      lcNumber: "",
+      invoiceDate: "",
+      billingDate: date,
+      isFridaySkipped: isAdjusted,
+    };
   });
 
   const [items, setItems] = useState<LineItem[]>([createBlankItem()]);
@@ -510,6 +544,7 @@ const App: React.FC = () => {
   const clearAll = () => {
     // 1. Reset Header explicitly
     const today = getTodayDateStr();
+    const { date, isAdjusted } = adjustFriday(today);
     setHeader({
       buyerName: "",
       supplierName: "",
@@ -517,7 +552,8 @@ const App: React.FC = () => {
       invoiceNo: "",
       lcNumber: "",
       invoiceDate: "",
-      billingDate: today,
+      billingDate: date,
+      isFridaySkipped: isAdjusted,
     });
 
     // 2. Reset Items with a completely NEW UUID to force input re-render
@@ -546,9 +582,35 @@ const App: React.FC = () => {
   };
 
   const handleGenerate = async () => {
-    if (!header.buyerName.trim()) return alert("⚠️ Please enter a Buyer Name.");
-    if (!header.billingDate || header.billingDate.length < 8) return alert("⚠️ Please enter a valid billing date.");
+    // 1. Validate Header Information
+    if (!header.buyerName.trim()) return alert("⚠️ Missing Input: Please enter a Buyer Name.");
+    if (!header.supplierName.trim()) return alert("⚠️ Missing Input: Please enter a Supplier Name.");
+    if (!header.fileNo.trim()) return alert("⚠️ Missing Input: Please enter a File No.");
+    if (!header.invoiceNo.trim()) return alert("⚠️ Missing Input: Please enter an Invoice No.");
+    if (!header.lcNumber.trim()) return alert("⚠️ Missing Input: Please enter an L/C Number.");
+    if (!header.invoiceDate.trim()) return alert("⚠️ Missing Input: Please enter an Invoice Date.");
+    if (!header.billingDate || header.billingDate.length < 8) return alert("⚠️ Missing Input: Please enter a valid Billing Date.");
     
+    // 2. Validate Line Items
+    if (items.length === 0) return alert("⚠️ Missing Input: Please add at least one line item.");
+    
+    for (let i = 0; i < items.length; i++) {
+      const item = items[i];
+      const row = i + 1;
+      const prefix = `⚠️ Row ${row} Missing Input:`;
+      
+      if (!item.fabricCode.trim()) return alert(`${prefix} Fabric Code is required.`);
+      if (!item.itemDescription.trim()) return alert(`${prefix} Item Description is required.`);
+      if (!item.color.trim()) return alert(`${prefix} Color is required.`);
+      if (!item.rcvdDate.trim()) return alert(`${prefix} Received Date is required.`);
+      if (!item.challanNo.trim()) return alert(`${prefix} Challan No is required.`);
+      if (!item.piNumber.trim()) return alert(`${prefix} PI Number is required.`);
+      if (item.invoiceQty <= 0) return alert(`${prefix} Quantity must be greater than 0.`);
+      if (!item.unit.trim()) return alert(`${prefix} Unit is required.`);
+      if (item.unitPrice <= 0) return alert(`${prefix} Unit Price must be greater than 0.`);
+      if (!item.appstremeNo.trim()) return alert(`${prefix} Appstreme No is required.`);
+    }
+
     // Save all current colors to persistent storage before generating
     items.forEach(item => {
       if (item.color) saveColorToPersistent(item.color);
@@ -577,12 +639,18 @@ const App: React.FC = () => {
 
         if (currentReportId) {
           console.log("Updating existing report:", currentReportId);
-          const { error } = await sb.from("reports").update(reportData).eq("id", currentReportId);
+          const { error } = await sb.from("reports").update({
+            ...reportData,
+            is_friday_skipped: header.isFridaySkipped
+          }).eq("id", currentReportId);
           if (error) throw error;
           alert("✅ Report Updated in Dashboard!");
         } else {
           console.log("Inserting new report");
-          const { data, error } = await sb.from("reports").insert([reportData]).select();
+          const { data, error } = await sb.from("reports").insert([{
+            ...reportData,
+            is_friday_skipped: header.isFridaySkipped
+          }]).select();
           if (error) throw error;
           if (data?.[0]) {
             setCurrentReportId(data[0].id);
@@ -606,6 +674,7 @@ const App: React.FC = () => {
       lcNumber: report.lc_number || "",
       invoiceDate: report.invoice_date || "",
       billingDate: report.billing_date || "",
+      isFridaySkipped: report.is_friday_skipped || false,
     });
     setItems(report.items || [createBlankItem()]);
     setIsSettingsOpen(false);
@@ -624,23 +693,6 @@ const App: React.FC = () => {
             <span>Bill Of Exchange Report Generator</span>
           </div>
           <div className="flex items-center gap-4">
-            <nav className="flex bg-white/10 p-1 rounded-lg">
-              <button 
-                onClick={() => setActiveView('generator')}
-                className={`px-4 py-1.5 rounded-md text-sm font-bold transition-all ${activeView === 'generator' ? 'bg-white text-blue-900 shadow-sm' : 'text-white/70 hover:text-white'}`}
-              >
-                Generator
-              </button>
-              <button 
-                onClick={() => {
-                  setActiveView('dashboard');
-                  fetchPublicReports();
-                }}
-                className={`px-4 py-1.5 rounded-md text-sm font-bold transition-all ${activeView === 'dashboard' ? 'bg-white text-blue-900 shadow-sm' : 'text-white/70 hover:text-white'}`}
-              >
-                Public Dashboard
-              </button>
-            </nav>
             <button 
               className="p-2 hover:bg-white/10 rounded-full transition-colors text-white/80 hover:text-white"
               onClick={() => setIsSettingsOpen(true)}
@@ -737,7 +789,16 @@ const App: React.FC = () => {
                     </div>
                     <div className="row-50-50">
                       <SmartDateInput label="Invoice Date" value={header.invoiceDate} onChange={(val) => setHeader(p => ({ ...p, invoiceDate: val }))} />
-                      <SmartDateInput label="Billing Date" value={header.billingDate} onChange={(val) => setHeader(p => ({ ...p, billingDate: val }))} required />
+                      <SmartDateInput 
+                        label="Billing Date" 
+                        value={header.billingDate} 
+                        onChange={(val) => {
+                          const { date, isAdjusted } = adjustFriday(val);
+                          setHeader(p => ({ ...p, billingDate: date, isFridaySkipped: isAdjusted }));
+                        }} 
+                        required 
+                        isAdjusted={header.isFridaySkipped}
+                      />
                     </div>
                   </div>
                 </div>
@@ -945,7 +1006,7 @@ const App: React.FC = () => {
                     <th className="px-6 py-4 text-left text-xs font-bold text-slate-500 uppercase tracking-wider">Buyer</th>
                     <th className="px-6 py-4 text-left text-xs font-bold text-slate-500 uppercase tracking-wider">Billing Date</th>
                     <th className="px-6 py-4 text-right text-xs font-bold text-slate-500 uppercase tracking-wider">Total Amount</th>
-                    <th className="px-6 py-4 text-center text-xs font-bold text-slate-500 uppercase tracking-wider">Status</th>
+                    <th className="px-6 py-4 text-center text-xs font-bold text-slate-500 uppercase tracking-wider">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
@@ -966,10 +1027,37 @@ const App: React.FC = () => {
                       <tr key={report.id} className="hover:bg-slate-50 transition-colors">
                         <td className="px-6 py-4 font-bold text-blue-600">{report.invoice_no}</td>
                         <td className="px-6 py-4 text-slate-600">{report.buyer_name}</td>
-                        <td className="px-6 py-4 text-slate-600 font-mono">{report.billing_date}</td>
+                        <td className={`px-6 py-4 font-mono ${report.is_friday_skipped ? "text-red-600 font-bold" : "text-slate-600"}`}>
+                          {report.billing_date}
+                          {report.is_friday_skipped && <span className="block text-[8px] text-red-500">Friday Skipped</span>}
+                        </td>
                         <td className="px-6 py-4 text-right font-bold text-emerald-600">{formatCurrency(report.total_amount)}</td>
                         <td className="px-6 py-4 text-center">
-                          <span className="px-2 py-1 bg-emerald-100 text-emerald-700 text-[10px] font-bold rounded uppercase">Recorded</span>
+                          <div className="flex justify-center gap-2">
+                            <button 
+                              onClick={() => {
+                                const header = {
+                                  buyerName: report.buyer_name,
+                                  supplierName: report.supplier_name,
+                                  fileNo: report.file_no,
+                                  invoiceNo: report.invoice_no,
+                                  lcNumber: report.lc_number,
+                                  invoiceDate: report.invoice_date,
+                                  billingDate: report.billing_date,
+                                  isFridaySkipped: report.is_friday_skipped,
+                                };
+                                const totals = calculateTotals(report.items);
+                                const filenameDate = getFilenameDate(header.billingDate);
+                                const filename = `Bill of Buyer ${header.buyerName} $${totals.totalValue.toFixed(2)} DATE-${filenameDate}`;
+                                generateReports(header, report.items);
+                              }}
+                              className="p-2 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 transition-colors"
+                              title="Download PDF & Excel"
+                            >
+                              <Download size={16} />
+                            </button>
+                            <span className="px-2 py-1 bg-emerald-100 text-emerald-700 text-[10px] font-bold rounded uppercase flex items-center">Recorded</span>
+                          </div>
                         </td>
                       </tr>
                     ))
