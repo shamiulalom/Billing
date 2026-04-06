@@ -52,6 +52,7 @@ create table if not exists reports (
   invoice_date text,
   billing_date text,
   items jsonb default '[]'::jsonb,
+  is_friday_skipped boolean default false,
   total_invoice_qty numeric default 0,
   total_rcvd_qty numeric default 0,
   total_amount numeric default 0,

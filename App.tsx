@@ -639,18 +639,12 @@ const App: React.FC = () => {
 
         if (currentReportId) {
           console.log("Updating existing report:", currentReportId);
-          const { error } = await sb.from("reports").update({
-            ...reportData,
-            is_friday_skipped: header.isFridaySkipped
-          }).eq("id", currentReportId);
+          const { error } = await sb.from("reports").update(reportData).eq("id", currentReportId);
           if (error) throw error;
           alert("✅ Report Updated in Dashboard!");
         } else {
           console.log("Inserting new report");
-          const { data, error } = await sb.from("reports").insert([{
-            ...reportData,
-            is_friday_skipped: header.isFridaySkipped
-          }]).select();
+          const { data, error } = await sb.from("reports").insert([reportData]).select();
           if (error) throw error;
           if (data?.[0]) {
             setCurrentReportId(data[0].id);
