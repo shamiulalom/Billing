@@ -826,22 +826,37 @@ const App: React.FC = () => {
                   <table key={`table-${resetKey}`}>
                     <thead>
                       <tr>
-                        <th style={{ minWidth: "220px" }}>Code & Description</th>
-                        <th style={{ minWidth: "120px" }}>Color</th>
+                        <th style={{ minWidth: "120px" }}>Appstreme</th>
                         <th style={{ minWidth: "140px" }}>Received Date</th>
                         <th style={{ minWidth: "160px" }}>Challan & PI</th>
-                        <th style={{ minWidth: "120px" }}>Quantity</th>
-                        {/* Unit moved here, after Quantities */}
-                        <th style={{ minWidth: "100px" }}>Unit</th> 
+                        <th style={{ minWidth: "220px" }}>Code & Description</th>
+                        <th style={{ minWidth: "100px" }}>Quantity</th>
                         <th style={{ minWidth: "100px" }}>Price ($)</th>
+                        <th style={{ minWidth: "120px" }}>Color</th>
+                        <th style={{ minWidth: "80px" }}>Unit</th>
                         <th style={{ minWidth: "100px" }}>Total ($)</th>
-                        <th style={{ minWidth: "100px" }}>Appstreme</th>
                         <th style={{ minWidth: "40px" }}></th>
                       </tr>
                     </thead>
                     <tbody>
                       {items.map((item) => (
                         <tr key={item.id}>
+                          <td>
+                            {previewMode ? <span>{item.appstremeNo}</span> : (
+                              <input type="text" value={item.appstremeNo || ""} onChange={e => handleItemChange(item.id, 'appstremeNo', e.target.value)} placeholder="Receipt No" autoComplete="off" />
+                            )}
+                          </td>
+                          <td>
+                            {previewMode ? <span>{item.rcvdDate}</span> : <SmartDateInput value={item.rcvdDate} onChange={val => handleItemChange(item.id, 'rcvdDate', val)} />}
+                          </td>
+                          <td>
+                            {previewMode ? <div>{item.challanNo}<br/>{item.piNumber}</div> : (
+                              <div style={{display:'flex', flexDirection:'column', gap:'4px'}}>
+                                <input type="text" value={item.challanNo || ""} onChange={e => handleItemChange(item.id, 'challanNo', e.target.value)} placeholder="Challan" autoComplete="off" />
+                                <input type="text" value={item.piNumber || ""} onChange={e => handleItemChange(item.id, 'piNumber', e.target.value)} placeholder="PI" autoComplete="off" />
+                              </div>
+                            )}
+                          </td>
                           <td>
                             {previewMode ? <div>{item.fabricCode}<br/>{item.itemDescription}</div> : (
                               <div style={{display:'flex', flexDirection:'column', gap:'4px'}}>
@@ -855,6 +870,31 @@ const App: React.FC = () => {
                                 />
                                 <input type="text" value={item.itemDescription || ""} onChange={e => handleItemChange(item.id, 'itemDescription', e.target.value)} placeholder="Description" autoComplete="off" />
                               </div>
+                            )}
+                          </td>
+                          <td>
+                            {previewMode ? <div>Qty: {item.invoiceQty}</div> : (
+                              <div style={{display:'flex', flexDirection:'column', gap:'4px'}}>
+                                <input 
+                                  type="number" 
+                                  value={item.invoiceQty === 0 ? "" : item.invoiceQty} 
+                                  onChange={e => handleItemChange(item.id, 'invoiceQty', parseFloat(e.target.value)||0)} 
+                                  placeholder="Quantity" 
+                                  autoComplete="off"
+                                />
+                              </div>
+                            )}
+                          </td>
+                          <td>
+                            {previewMode ? <span>${item.unitPrice}</span> : (
+                              <input 
+                                type="number" 
+                                value={item.unitPrice === 0 ? "" : item.unitPrice} 
+                                onChange={e => handleItemChange(item.id, 'unitPrice', parseFloat(e.target.value)||0)} 
+                                step="0.01" 
+                                placeholder="Price"
+                                autoComplete="off"
+                              />
                             )}
                           </td>
                           <td>
@@ -876,55 +916,13 @@ const App: React.FC = () => {
                             )}
                           </td>
                           <td>
-                            {previewMode ? <span>{item.rcvdDate}</span> : <SmartDateInput value={item.rcvdDate} onChange={val => handleItemChange(item.id, 'rcvdDate', val)} />}
-                          </td>
-                          <td>
-                            {previewMode ? <div>{item.challanNo}<br/>{item.piNumber}</div> : (
-                              <div style={{display:'flex', flexDirection:'column', gap:'4px'}}>
-                                <input type="text" value={item.challanNo || ""} onChange={e => handleItemChange(item.id, 'challanNo', e.target.value)} placeholder="Challan" autoComplete="off" />
-                                <input type="text" value={item.piNumber || ""} onChange={e => handleItemChange(item.id, 'piNumber', e.target.value)} placeholder="PI" autoComplete="off" />
-                              </div>
-                            )}
-                          </td>
-                          <td>
-                            {previewMode ? <div>Qty: {item.invoiceQty}</div> : (
-                              <div style={{display:'flex', flexDirection:'column', gap:'4px'}}>
-                                <input 
-                                  type="number" 
-                                  value={item.invoiceQty === 0 ? "" : item.invoiceQty} 
-                                  onChange={e => handleItemChange(item.id, 'invoiceQty', parseFloat(e.target.value)||0)} 
-                                  placeholder="Quantity" 
-                                  autoComplete="off"
-                                />
-                              </div>
-                            )}
-                          </td>
-                          {/* Unit Data moved here */}
-                          <td>
                             {previewMode ? <span>{item.unit}</span> : (
                               <select value={item.unit} onChange={e => handleItemChange(item.id, 'unit', e.target.value)}>
                                 <option>YDS</option><option>PCS</option><option>KG</option><option>MTR</option><option>BOX</option>
                               </select>
                             )}
                           </td>
-                          <td>
-                            {previewMode ? <span>${item.unitPrice}</span> : (
-                              <input 
-                                type="number" 
-                                value={item.unitPrice === 0 ? "" : item.unitPrice} 
-                                onChange={e => handleItemChange(item.id, 'unitPrice', parseFloat(e.target.value)||0)} 
-                                step="0.01" 
-                                placeholder="Price"
-                                autoComplete="off"
-                              />
-                            )}
-                          </td>
                           <td style={{textAlign:'right'}}><strong>${(item.invoiceQty * item.unitPrice).toFixed(2)}</strong></td>
-                          <td>
-                            {previewMode ? <span>{item.appstremeNo}</span> : (
-                              <input type="text" value={item.appstremeNo || ""} onChange={e => handleItemChange(item.id, 'appstremeNo', e.target.value)} placeholder="Receipt No" autoComplete="off" />
-                            )}
-                          </td>
                           <td>{!previewMode && <button className="btn btn-danger btn-sm" onClick={() => removeRow(item.id)} disabled={items.length===1}><Trash2 size={14}/></button>}</td>
                         </tr>
                       ))}
