@@ -822,34 +822,39 @@ const App: React.FC = () => {
                     </button>
                   </div>
                 </div>
+                {/* 
+                  LAYOUT CUSTOMIZATION NOTE:
+                  To change column widths, row heights, or input sizes, 
+                  please edit the variables in "index.css" under the :root section.
+                */}
                 <div className="table-wrapper">
                   <table key={`table-${resetKey}`}>
                     <thead>
                       <tr>
-                        <th style={{ minWidth: "120px" }}>Appstreme</th>
-                        <th style={{ minWidth: "140px" }}>Received Date</th>
-                        <th style={{ minWidth: "160px" }}>Challan & PI</th>
-                        <th style={{ minWidth: "220px" }}>Code & Description</th>
-                        <th style={{ minWidth: "100px" }}>Quantity</th>
-                        <th style={{ minWidth: "100px" }}>Price ($)</th>
-                        <th style={{ minWidth: "120px" }}>Color</th>
-                        <th style={{ minWidth: "80px" }}>Unit</th>
-                        <th style={{ minWidth: "100px" }}>Total ($)</th>
-                        <th style={{ minWidth: "40px" }}></th>
+                        <th className="col-appstreme">Appstreme</th>
+                        <th className="col-rcvd-date">Received Date</th>
+                        <th className="col-challan-pi">Challan & PI</th>
+                        <th className="col-code-desc">Code & Description</th>
+                        <th className="col-qty">Quantity</th>
+                        <th className="col-price">Price ($)</th>
+                        <th className="col-color">Color</th>
+                        <th className="col-unit">Unit</th>
+                        <th className="col-total">Total ($)</th>
+                        <th className="col-action"></th>
                       </tr>
                     </thead>
                     <tbody>
                       {items.map((item) => (
                         <tr key={item.id}>
-                          <td>
+                          <td className="col-appstreme">
                             {previewMode ? <span>{item.appstremeNo}</span> : (
                               <input type="text" value={item.appstremeNo || ""} onChange={e => handleItemChange(item.id, 'appstremeNo', e.target.value)} placeholder="Receipt No" autoComplete="off" />
                             )}
                           </td>
-                          <td>
+                          <td className="col-rcvd-date">
                             {previewMode ? <span>{item.rcvdDate}</span> : <SmartDateInput value={item.rcvdDate} onChange={val => handleItemChange(item.id, 'rcvdDate', val)} />}
                           </td>
-                          <td>
+                          <td className="col-challan-pi">
                             {previewMode ? <div>{item.challanNo}<br/>{item.piNumber}</div> : (
                               <div style={{display:'flex', flexDirection:'column', gap:'4px'}}>
                                 <input type="text" value={item.challanNo || ""} onChange={e => handleItemChange(item.id, 'challanNo', e.target.value)} placeholder="Challan" autoComplete="off" />
@@ -857,7 +862,7 @@ const App: React.FC = () => {
                               </div>
                             )}
                           </td>
-                          <td>
+                          <td className="col-code-desc">
                             {previewMode ? <div>{item.fabricCode}<br/>{item.itemDescription}</div> : (
                               <div style={{display:'flex', flexDirection:'column', gap:'4px'}}>
                                 <SmartInputField 
@@ -872,7 +877,7 @@ const App: React.FC = () => {
                               </div>
                             )}
                           </td>
-                          <td>
+                          <td className="col-qty">
                             {previewMode ? <div>Qty: {item.invoiceQty}</div> : (
                               <div style={{display:'flex', flexDirection:'column', gap:'4px'}}>
                                 <input 
@@ -885,7 +890,7 @@ const App: React.FC = () => {
                               </div>
                             )}
                           </td>
-                          <td>
+                          <td className="col-price">
                             {previewMode ? <span>${item.unitPrice}</span> : (
                               <input 
                                 type="number" 
@@ -897,7 +902,7 @@ const App: React.FC = () => {
                               />
                             )}
                           </td>
-                          <td>
+                          <td className="col-color">
                             {previewMode ? <div>{item.color}</div> : (
                               <div style={{display:'flex', flexDirection:'column', gap:'4px'}}>
                                 <SmartInputField 
@@ -915,15 +920,15 @@ const App: React.FC = () => {
                               </div>
                             )}
                           </td>
-                          <td>
+                          <td className="col-unit">
                             {previewMode ? <span>{item.unit}</span> : (
                               <select value={item.unit} onChange={e => handleItemChange(item.id, 'unit', e.target.value)}>
                                 <option>YDS</option><option>PCS</option><option>KG</option><option>MTR</option><option>BOX</option>
                               </select>
                             )}
                           </td>
-                          <td style={{textAlign:'right'}}><strong>${(item.invoiceQty * item.unitPrice).toFixed(2)}</strong></td>
-                          <td>{!previewMode && <button className="btn btn-danger btn-sm" onClick={() => removeRow(item.id)} disabled={items.length===1}><Trash2 size={14}/></button>}</td>
+                          <td className="col-total" style={{textAlign:'right'}}><strong>${(item.invoiceQty * item.unitPrice).toFixed(2)}</strong></td>
+                          <td className="col-action">{!previewMode && <button className="btn btn-danger btn-sm" onClick={() => removeRow(item.id)} disabled={items.length===1}><Trash2 size={14}/></button>}</td>
                         </tr>
                       ))}
                     </tbody>

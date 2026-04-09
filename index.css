@@ -17,7 +17,47 @@
   --gray-700: #374151;
   --gray-800: #1f2937;
   --gray-900: #111827;
+
+  /* LAYOUT DIMENSIONS - CUSTOMIZE THESE */
+  --bill-info-height: 100px;      /* Height of the top "Bill Information" panel (e.g. 200px or auto) */
+  --input-height: 30px;          /* Height of all input boxes, dropdowns, and date pickers */
+  --table-header-height: 20px;   /* Height of the blue table header bar */
+  --table-row-height: 40px;      /* Height of each row in the Line Items table */
+  
+  --app-header-padding: 0.5rem 1.5rem;   /* Padding for the top blue header */
+  --content-wrapper-padding: 0.2rem;     /* Gap around the main white panel */
+  --section-padding: 0.35rem;            /* Padding inside Bill Info and Table sections */
+
+  --footer-height: 10px;         /* Height of the green footer bar at the bottom */
+  --footer-padding: 0.2rem 1.5rem; /* Padding inside the footer bar */
+  --footer-item-min-width: 160px; /* Minimum width of summary boxes (Buyer, Qty, Value) in footer */
+  --footer-item-padding: 0.2rem 0.8rem; /* Padding inside each summary box */
+  --footer-value-font-size: 0.9rem;  /* Font size of the summary values */
+
+  /* TABLE COLUMN WIDTHS - Adjust these to change column sizes */
+  --col-appstreme-width: 120px;   /* Width of "Appstreme" column */
+  --col-rcvd-date-width: 140px;   /* Width of "Received Date" column */
+  --col-challan-pi-width: 160px;  /* Width of "Challan & PI" column */
+  --col-code-desc-width: 220px;   /* Width of "Code & Description" column */
+  --col-qty-width: 100px;         /* Width of "Quantity" column */
+  --col-price-width: 100px;       /* Width of "Price ($)" column */
+  --col-color-width: 120px;       /* Width of "Color" column */
+  --col-unit-width: 80px;         /* Width of "Unit" column */
+  --col-total-width: 100px;       /* Width of "Total ($)" column */
+  --col-action-width: 40px;        /* Width of the "Delete" button column */
 }
+
+/* COLUMN WIDTH CLASSES */
+.col-appstreme { width: var(--col-appstreme-width); min-width: var(--col-appstreme-width); }
+.col-rcvd-date { width: var(--col-rcvd-date-width); min-width: var(--col-rcvd-date-width); }
+.col-challan-pi { width: var(--col-challan-pi-width); min-width: var(--col-challan-pi-width); }
+.col-code-desc { width: var(--col-code-desc-width); min-width: var(--col-code-desc-width); }
+.col-qty { width: var(--col-qty-width); min-width: var(--col-qty-width); }
+.col-price { width: var(--col-price-width); min-width: var(--col-price-width); }
+.col-color { width: var(--col-color-width); min-width: var(--col-color-width); }
+.col-unit { width: var(--col-unit-width); min-width: var(--col-unit-width); }
+.col-total { width: var(--col-total-width); min-width: var(--col-total-width); }
+.col-action { width: var(--col-action-width); min-width: var(--col-action-width); }
 
 * {
   margin: 0;
@@ -70,7 +110,7 @@ input[type=number] {
     var(--primary) 100%
   );
   color: white;
-  padding: 1rem 1.5rem;
+  padding: var(--app-header-padding);
   box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15);
 }
 
@@ -111,7 +151,7 @@ input[type=number] {
 /* MAIN CONTENT */
 .content-wrapper {
   flex: 1;
-  padding: 1.25rem;
+  padding: var(--content-wrapper-padding);
   max-width: 1600px;
   margin: 0 auto;
   width: 100%;
@@ -131,10 +171,10 @@ input[type=number] {
 .form-section {
   flex: 1;
   overflow-y: auto;
-  padding: 1.25rem;
+  padding: var(--section-padding);
   display: flex;
   flex-direction: column;
-  gap: 1rem;
+  gap: 0.5rem;
   border-bottom: 1px solid var(--gray-200);
 }
 
@@ -145,8 +185,8 @@ input[type=number] {
   color: var(--primary-dark);
   display: flex;
   align-items: center;
-  gap: 0.5rem;
-  margin-bottom: 0.35rem;
+  gap: 0.1rem;
+  margin-bottom: 0.15rem;
   padding-bottom: 0.2rem;
   border-bottom: 2px solid var(--primary-light);
 }
@@ -155,6 +195,7 @@ input[type=number] {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 1.25rem;
+  min-height: var(--bill-info-height);
 }
 
 .bill-info-left,
@@ -290,6 +331,7 @@ input[type=number] {
   font-family: inherit;
   transition: all 0.3s ease;
   background: white;
+  height: var(--input-height);
 }
 
 .input-field input:hover,
@@ -359,8 +401,8 @@ input[type=number] {
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  padding: 1.25rem;
-  gap: 0.75rem;
+  padding: var(--section-padding);
+  gap: 0.5rem;
 }
 
 .table-header {
@@ -420,7 +462,8 @@ thead {
 }
 
 th {
-  padding: 1.25rem 1rem;
+  padding: 0 1rem;
+  height: var(--table-header-height);
   text-align: left;
   font-weight: 700;
   text-transform: uppercase;
@@ -458,7 +501,8 @@ tbody tr:last-child {
 }
 
 td {
-  padding: 1rem;
+  padding: 0.5rem 1rem;
+  height: var(--table-row-height);
   color: #374151;
   border-right: 1px solid #e5e7eb;
 }
@@ -476,6 +520,7 @@ td select {
   font-size: 0.875rem;
   font-family: inherit;
   transition: all 0.2s ease;
+  height: var(--input-height);
 }
 
 td input:focus,
@@ -559,7 +604,8 @@ td select:focus {
   background: linear-gradient(90deg, #064e3b 0%, #047857 55%, #022c22 100%);
   border-top: 2px solid #b91c1c;
 
-  padding: 1rem 1.5rem;
+  padding: var(--footer-padding);
+  min-height: var(--footer-height);
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -582,12 +628,13 @@ td select:focus {
 .footer-summary-item {
   display: flex;
   flex-direction: column;
-  gap: 0.3rem;
+  gap: 0.2rem;
   color: white;
-  padding: 0.5rem 1rem;
+  padding: var(--footer-item-padding);
   border-radius: 0.5rem;
   background: rgba(255, 255, 255, 0.1);
   transition: all 0.3s ease;
+  min-width: var(--footer-item-min-width);
 }
 
 .footer-summary-item.qty-mismatch {
@@ -604,7 +651,7 @@ td select:focus {
 }
 
 .footer-summary-value {
-  font-size: 1.1rem;
+  font-size: var(--footer-value-font-size);
   font-weight: 700;
 }
 
