@@ -44,7 +44,7 @@ CHTL,CHANGSHU HAOSHENG TRADING CO. LTD
 RMI,R.M. Interlining Ltd.
 ZYR,Zibo Yangtze River Textile & Technology Co. Ltd
 ARFL,ARTEX FABRICS LIMITED
-AM,Artistic Milliners (PVT) Ltd.
+Artistic,Artistic Milliners (PVT) Ltd.
 SCTT,Shanghai Chengwei Textile Tech Co.Ltd.
 JTTC,Jiangsu Tengfei Textile Co. Ltd.
 FBDT,Foshan Blue Denim Textile Import and Export Co. Ltd
