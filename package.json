@@ -3,15 +3,17 @@
   "private": true,
   "version": "1.0.0",
   "type": "module",
+  "main": "dist-electron/main.js",
   "scripts": {
     "dev": "vite",
-    "build": "vite build",
+    "build": "tsc && vite build && tsc -p tsconfig.electron.json",
     "preview": "vite preview",
     "lint": "tsc --noEmit",
-    "deploy": "vercel"
+    "deploy": "vercel",
+    "electron:build": "npm run build && electron-builder --win --portable"
   },
   "dependencies": {
-    "@supabase/supabase-js": "^2.99.1",
+    "@supabase/supabase-js": "^2.43.0",
     "exceljs": "^4.4.0",
     "html2pdf.js": "^0.12.1",
     "jspdf": "^3.0.4",
@@ -24,8 +26,29 @@
   "devDependencies": {
     "@types/node": "^22.14.0",
     "@vitejs/plugin-react": "^5.0.0",
+    "electron": "^30.0.0",
+    "electron-builder": "^24.13.3",
     "terser": "^5.44.1",
     "typescript": "~5.8.2",
     "vite": "^6.2.0"
+  },
+  "build": {
+    "appId": "com.tusuka.inventory.report.generator",
+    "productName": "Tusuka Inventory Report Generator",
+    "directories": {
+      "output": "dist"
+    },
+    "win": {
+      "target": [
+        "portable"
+      ],
+      "icon": "assets/icon.png"
+    },
+    "files": [
+      "dist/**/*",
+      "dist-electron/**/*",
+      "package.json"
+    ],
+    "asar": true
   }
 }
