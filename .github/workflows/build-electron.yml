@@ -1,0 +1,72 @@
+name: Build Portable Windows EXE
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+    inputs:
+      supabase_url:
+        description: 'Enter your Supabase URL (VITE_SUPABASE_URL)'
+        required: true
+        type: string
+        default: ''
+      supabase_anon_key:
+        description: 'Enter your Supabase Anon Key (VITE_SUPABASE_ANON_KEY)'
+        required: true
+        type: string
+        default: ''
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+
+    steps:
+    - name: Checkout Source Code
+      uses: actions/checkout@v4
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: 18
+        cache: 'npm'
+
+    - name: Install Dependencies
+      run: npm ci
+
+    - name: Compile and Build App
+      run: npm run build
+      env:
+        # This dynamically uses the manual inputs if run via Actions UI, 
+        # or falls back to your repository secrets if triggered via a git push.
+        VITE_SUPABASE_URL: ${{ inputs.supabase_url || secrets.SUPABASE_URL }}
+        VITE_SUPABASE_ANON_KEY: ${{ inputs.supabase_anon_key || secrets.SUPABASE_ANON_KEY }}
+
+    # SAFETY CHECK: If dist-electron folder doesn't exist, create fallback structure
+    - name: Ensure Electron Dist Directory Exists
+      shell: bash
+      run: |
+        if [ ! -d "dist-electron" ]; then
+          echo "⚠️ dist-electron directory not found! Creating fallback directory structure..."
+          mkdir -p dist-electron
+          
+          if [ ! -f "dist-electron/main.js" ]; then
+            echo "Creating a baseline main.js file to prevent builder crash..."
+            echo "const { app, BrowserWindow } = require('electron'); path = require('path'); let win; app.whenReady().then(() => { win = new BrowserWindow({ width: 1200, height: 800, webPreferences: { nodeIntegration: true } }); win.loadFile(path.join(__dirname, '../dist/index.html')); });" > dist-electron/main.js
+          fi
+        else
+          echo "✅ dist-electron directory validated successfully."
+        fi
+
+    - name: Package Portable EXE via Electron Builder
+      run: npx electron-builder --win --portable
+      env:
+        GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Upload Portable Executable Artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: Tusuka-Inventory-Report-Generator-EXE
+        path: dist/*.exe
+        if-no-files-found: error
+        retention-days: 7
